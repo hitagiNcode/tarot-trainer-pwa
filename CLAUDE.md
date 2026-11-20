@@ -17,3 +17,15 @@ https://hitagincode.github.io/tarot-trainer-pwa/ (repo: hitagiNcode/tarot-traine
 
 ## Layout
 See the project structure in README.md.
+
+## GitHub basics (for newcomers)
+High-level notes only; details may change, so check GitHub's own docs when in doubt.
+
+- **Repo:** public, MIT-licensed (see `LICENSE`). Anything committed is visible to everyone, so never commit secrets or personal data.
+- **Deploying:** there is no build. GitHub Pages is set to deploy through GitHub Actions (Settings → Pages → Source). The workflow in `.github/workflows/static.yml` publishes the whole repo on every push to `main`. A deploy takes about a minute; if the site looks stale, check the Actions tab for a failed run.
+- **Running locally:** serve the repo folder with any static server (for example `python3 -m http.server`) and open `localhost` in a browser. Opening `index.html` directly will not register the Service Worker.
+- **Updates reach users slowly on purpose.** The Service Worker is cache-first, so after a deploy an installed app may need to be closed and reopened once or twice before it shows the new version. Always bump `CACHE_NAME` in `sw.js` so the update is picked up.
+- **Pushing:** use small commits with clear messages. If a push is rejected, pull first, because `main` changed elsewhere (for example an edit made on github.com). For larger changes, use a branch and a pull request.
+- **File names are case-sensitive on GitHub Pages**, even if your computer ignores case. Keep names lowercase and match them exactly in code and in `sw.js`.
+- **Content and art:** card text and artwork in this repo are original. Do not paste in text or images from published tarot guidebooks or commercial decks.
+- **User data stays on the device** (`localStorage`). Changing the saved-data shape can break people's existing progress and backups, so keep old data readable or add a small migration.
