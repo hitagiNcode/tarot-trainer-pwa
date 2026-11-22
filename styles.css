@@ -106,8 +106,8 @@ textarea { min-height: 150px; resize: vertical; }
 label.check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 label.check input { width: 22px; height: 22px; accent-color: var(--accent); }
 
-/* cards (SVG) */
-.card-svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .45)); }
+/* Cards: white faces, pink frames and black hand-drawn tarot line art */
+.card-svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .14)); }
 .card-svg.reversed { transform: rotate(180deg); }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 10px; }
 @media (min-width: 560px) { .grid { grid-template-columns: repeat(4, 1fr); } }
