@@ -141,7 +141,9 @@
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
 
   /* ---------- SVG card renderer ---------- */
-  var COLORS = { wands: '#f08a4b', cups: '#5bb4f0', swords: '#c3cfe6', pentacles: '#7cc67a', major: '#e6c36a' };
+  var INK = '#171717';
+  var PINK = '#e889b4';
+  var SERIF = "Georgia,'Hiragino Mincho ProN','Yu Mincho','Noto Serif CJK JP','Noto Serif JP',serif";
   var PIPS = {
     1: [[100, 172]],
     2: [[100, 105], [100, 239]],
@@ -154,51 +156,108 @@
     9: [[68, 95], [132, 95], [68, 145], [132, 145], [100, 172], [68, 199], [132, 199], [68, 249], [132, 249]],
     10: [[68, 92], [132, 92], [100, 120], [68, 148], [132, 148], [68, 200], [132, 200], [100, 224], [68, 252], [132, 252]]
   };
-  var CROWNS = {
-    11: 'M100 84 L118 104 L100 124 L82 104 Z',
-    12: 'M66 112 L100 88 L134 112 M66 128 L100 104 L134 128',
-    13: 'M70 124 L76 90 L100 112 L124 90 L130 124 Z',
-    14: 'M62 126 L66 88 L84 108 L100 82 L116 108 L134 88 L138 126 Z'
+
+  /* Original hand-drawn line motifs for the Major Arcana.
+   * The zodiac glyphs remain part of the card data for elemental references only;
+   * the card faces use tarot-specific scenes instead.
+   */
+  var MAJOR_ART = {
+    0: '<path d="M74 196 Q89 184 101 190 L117 211 M92 190 L86 161 L105 139 L117 147 L107 171 L124 187 M104 140 L111 126 L122 132 L117 147 M83 160 L71 149 M70 149 L61 157 M118 211 L124 231 M91 190 L82 216 L91 233 M123 188 L145 204 L151 218 M143 204 L151 218 L141 216"/><path d="M34 244 Q71 231 106 245 T169 243 M47 235 L42 224 M47 235 L55 225"/><path d="M53 210 Q61 197 72 207 L80 215 L72 226 L59 224 Z M59 224 L55 235 M72 225 L80 235"/><path d="M75 114 Q100 96 125 113 M100 103 L100 90 M91 108 L84 100 M109 108 L116 100"/>',
+    1: '<path d="M100 93 C78 74 62 94 78 107 C91 117 110 117 123 105 C138 91 119 74 100 93 Z"/><path d="M100 132 L100 195 M94 140 L106 140 M89 195 L111 195 M72 205 L128 205 L139 222 L61 222 Z"/><path d="M75 222 L75 232 M125 222 L125 232 M81 236 L119 236"/><path d="M63 184 Q71 177 78 184 L84 193 M137 184 Q129 177 122 184 L116 193"/><circle cx="68" cy="174" r="6"/><path d="M132 167 L138 181 L126 181 Z"/>',
+    2: '<path d="M58 92 L58 235 M50 92 L66 92 M51 235 L66 235 M142 92 L142 235 M134 92 L150 92 M134 235 L150 235"/><path d="M79 205 Q100 192 121 205 L121 224 Q100 235 79 224 Z"/><path d="M100 202 L100 228 M83 211 L95 216 M105 216 L117 211"/><path d="M88 82 Q106 60 125 81 Q110 79 103 93 Q94 91 88 82 Z"/><path d="M74 107 Q100 94 126 107 M78 119 Q100 111 122 119"/>',
+    3: '<path d="M100 132 C73 108 52 136 66 157 C75 171 91 181 100 191 C109 181 125 171 134 157 C148 136 127 108 100 132 Z"/><path d="M100 190 L100 231 M100 211 Q77 207 74 190 M100 220 Q122 215 128 194"/><path d="M73 190 Q62 179 66 168 Q80 168 85 183 M128 194 Q141 182 137 169 Q123 169 117 185"/><path d="M84 120 Q100 106 116 120 M93 115 L100 103 L107 115"/>',
+    4: '<path d="M65 125 L65 213 Q100 231 135 213 L135 125 L119 139 L100 117 L81 139 Z"/><path d="M78 213 L78 235 M122 213 L122 235 M69 235 L131 235"/><path d="M65 125 L57 113 L75 116 L82 99 L100 113 L118 99 L125 116 L143 113 L135 125"/><path d="M83 164 Q100 151 117 164 L117 191 Q100 203 83 191 Z"/><path d="M100 165 L100 190 M91 176 L109 176"/>',
+    5: '<path d="M100 106 L100 184 M88 123 Q100 108 112 123 M82 145 Q100 131 118 145"/><path d="M78 185 L122 185 M84 185 L84 206 M116 185 L116 206"/><path d="M82 206 L100 222 L118 206"/><circle cx="100" cy="94" r="13"/><path d="M100 81 L100 70 M83 94 L72 94 M117 94 L128 94"/><path d="M67 229 L133 229 M75 238 L125 238"/>',
+    6: '<path d="M100 135 C78 111 57 136 71 157 C81 171 93 180 100 186 C107 180 119 171 129 157 C143 136 122 111 100 135 Z"/><circle cx="72" cy="204" r="11"/><circle cx="128" cy="204" r="11"/><path d="M72 215 L67 241 L83 241 L78 216 M128 215 L122 241 L138 241 L133 216"/><path d="M72 193 L60 181 M128 193 L140 181 M100 100 L100 119 M91 110 L109 110"/>',
+    7: '<path d="M58 162 L142 162 L151 194 L49 194 Z"/><path d="M66 162 L77 131 L123 131 L134 162 M83 132 L83 112 L117 112 L117 132"/><circle cx="71" cy="205" r="13"/><circle cx="129" cy="205" r="13"/><path d="M71 205 L71 192 M129 205 L129 192 M77 148 L51 137 M123 148 L149 137"/><path d="M100 112 L100 91 M94 96 L100 88 L106 96"/>',
+    8: '<path d="M100 112 C83 96 62 113 66 137 C70 163 87 177 100 180 C113 177 130 163 134 137 C138 113 117 96 100 112 Z"/><path d="M68 126 L54 111 L75 115 M132 126 L146 111 L125 115 M79 111 L72 91 L93 106 M121 111 L128 91 L107 106"/><path d="M83 142 Q91 134 98 143 M102 143 Q109 134 117 142 M93 157 Q100 164 107 157"/><path d="M100 181 L100 220 M100 203 Q79 194 72 180 M100 203 Q121 194 128 180"/><path d="M83 91 Q100 73 117 91 Q100 84 83 91 Z"/>',
+    9: '<path d="M83 110 Q100 91 117 110 L126 174 Q100 196 74 174 Z"/><path d="M84 112 L116 112 L111 148 L89 148 Z"/><path d="M100 117 L100 141 M94 145 L106 145"/><path d="M133 104 L151 239 M144 98 L156 106 M145 111 L157 119"/><path d="M76 176 L61 209 L73 229 M124 176 L139 209 L127 229"/>',
+    10: '<circle cx="100" cy="166" r="58"/><circle cx="100" cy="166" r="45"/><path d="M100 108 L100 224 M42 166 L158 166 M59 125 L141 207 M141 125 L59 207"/><path d="M100 108 L108 122 L92 122 Z M158 166 L144 174 L144 158 Z"/><path d="M75 153 L100 137 L125 153 L125 182 L100 196 L75 182 Z"/><circle cx="100" cy="166" r="5"/>',
+    11: '<path d="M100 105 L100 232 M78 232 L122 232 M82 225 L118 225 M100 105 L66 129 L134 129"/><path d="M66 129 L48 177 M66 129 L84 177 M48 177 Q66 189 84 177 Z"/><path d="M134 129 L116 177 M134 129 L152 177 M116 177 Q134 189 152 177 Z"/><path d="M88 103 L100 90 L112 103 M94 92 L106 92"/>',
+    12: '<path d="M48 92 Q76 75 100 92 Q124 75 152 92 M63 92 L63 112 M137 92 L137 112"/><path d="M100 93 L100 146 M92 119 L108 119"/><circle cx="100" cy="154" r="12"/><path d="M88 153 L80 149 L83 161 M112 153 L120 149 L117 161"/><path d="M91 166 L82 195 L118 195 L109 166 Z M88 177 L73 188 M112 177 L127 188"/><path d="M89 195 L80 214 M111 195 L120 214"/>',
+    13: '<path d="M56 106 L145 204 M136 190 L154 218 M145 204 L162 202"/><path d="M54 106 Q78 92 99 117 Q109 130 100 146 Q84 137 73 126 Q61 117 54 106 Z"/><path d="M58 106 L83 119 L103 143"/><path d="M120 216 Q127 198 145 205 Q158 215 150 232 Q135 246 120 232 Z"/><path d="M135 205 L136 195 M143 207 L152 198 M122 219 L112 213 M150 225 L163 229"/>',
+    14: '<path d="M64 125 L89 125 Q89 153 77 158 Q64 153 64 125 Z M111 101 L136 101 Q136 129 124 134 Q111 129 111 101 Z"/><path d="M77 158 L77 181 M124 134 L124 157 M66 181 L88 181 M113 157 L135 157"/><path d="M89 133 Q104 145 111 111 M91 139 Q101 157 111 129"/><path d="M53 209 Q73 196 93 207 T143 207 M48 223 Q75 214 101 224 T151 224"/>',
+    15: '<path d="M100 107 L79 78 L88 118 L63 112 L78 143 L100 157 L122 143 L137 112 L112 118 L121 78 Z"/><path d="M82 132 Q100 120 118 132 L116 166 Q100 180 84 166 Z"/><circle cx="91" cy="146" r="3" fill="#171717"/><circle cx="109" cy="146" r="3" fill="#171717"/><path d="M92 161 Q100 166 108 161 M75 184 L125 184 M75 184 L65 207 L83 207 M125 184 L135 207 L117 207"/><path d="M68 211 L88 225 L108 211 L128 225"/>',
+    16: '<path d="M68 131 L132 131 L132 231 L68 231 Z M68 151 L132 151 M68 171 L132 171 M68 191 L132 191 M68 211 L132 211"/><path d="M68 151 L86 151 L86 171 L68 171 M105 171 L132 171 L132 191 L105 191 M68 191 L91 191 L91 211 L68 211"/><path d="M113 78 L93 125 L109 119 L91 159 L133 108 L115 114 L129 78 Z"/><path d="M82 231 L73 244 M118 231 L128 244 M56 245 L145 245"/>',
+    17: '<path d="M100 79 L109 103 L135 105 L115 122 L121 148 L100 135 L79 148 L85 122 L65 105 L91 103 Z"/><path d="M58 174 Q76 156 93 175 L93 205 Q76 214 58 205 Z M107 180 Q124 165 142 180 L142 210 Q124 218 107 210 Z"/><path d="M72 207 L50 235 M80 210 L66 240 M125 214 L147 240 M133 212 L155 234"/><path d="M48 246 Q75 236 100 246 T152 246"/>',
+    18: '<path d="M100 76 Q72 105 100 132 Q128 105 100 76 Z"/><path d="M100 76 Q88 95 100 109 Q112 95 100 76 Z"/><path d="M47 184 Q59 165 76 182 L87 201 L72 216 L52 210 Z M153 184 Q141 165 124 182 L113 201 L128 216 L148 210 Z"/><path d="M60 190 L74 190 M140 190 L126 190 M73 218 L64 239 M127 218 L136 239"/><path d="M47 248 Q74 234 100 248 T153 248"/><circle cx="100" cy="176" r="10"/>',
+    19: '<circle cx="100" cy="139" r="30"/><path d="M100 94 L100 79 M100 184 L100 199 M55 139 L40 139 M145 139 L160 139 M68 107 L57 96 M132 107 L143 96 M68 171 L57 182 M132 171 L143 182"/><circle cx="89" cy="135" r="3" fill="#171717"/><circle cx="111" cy="135" r="3" fill="#171717"/><path d="M88 151 Q100 162 112 151"/><path d="M100 169 L100 233 M100 196 Q78 184 68 170 M100 206 Q122 188 134 172"/><path d="M71 172 Q54 160 58 145 Q74 146 81 160 M132 174 Q149 160 143 145 Q127 147 120 161"/>',
+    20: '<path d="M56 107 L82 119 L78 139 L52 128 Z M82 119 L121 139"/><path d="M61 109 L73 91 L83 119 M70 114 L80 96"/><path d="M121 139 L138 132 M121 139 L135 149"/><circle cx="84" cy="196" r="11"/><circle cx="116" cy="196" r="11"/><path d="M84 207 L78 239 L91 239 L88 207 M116 207 L109 239 L122 239 L120 207"/><path d="M73 227 L62 241 M127 227 L138 241 M90 176 L100 164 L110 176"/>',
+    21: '<path d="M100 77 C56 85 43 129 55 176 C67 222 133 222 145 176 C157 129 144 85 100 77 Z"/><path d="M100 91 C68 100 62 135 70 171 C79 204 121 204 130 171 C138 135 132 100 100 91 Z"/><path d="M100 111 L100 173 M89 135 L100 122 L111 135 M86 186 Q100 198 114 186"/><path d="M57 113 L42 104 M143 113 L158 104 M57 179 L41 188 M143 179 L159 188"/>'
   };
-  var SERIF = "Georgia,'Hiragino Mincho ProN','Yu Mincho','Noto Serif CJK JP','Noto Serif JP',serif";
+
+  function suitSymbol(suit, x, y, scale) {
+    var art = '';
+    if (suit === 'wands') {
+      art = '<path d="M-3 20 Q0 0 2 -20 M-2 3 Q-13 -1 -14 -12 Q-2 -10 0 -2 M1 -6 Q12 -10 14 -21 Q2 -18 1 -6 M-1 11 Q-12 8 -17 1"/>';
+    } else if (suit === 'cups') {
+      art = '<path d="M-14 -17 Q0 -14 14 -17 Q12 2 0 4 Q-12 2 -14 -17 Z M0 4 L0 18 M-10 19 Q0 15 10 19"/><path d="M-8 -12 Q0 -9 8 -12"/>';
+    } else if (suit === 'swords') {
+      art = '<path d="M0 -23 Q-8 -6 -5 9 L0 14 L5 9 Q8 -6 0 -23 Z M-14 7 L14 7 M0 13 L0 22 M-6 22 L6 22"/>';
+    } else {
+      art = '<circle cx="0" cy="0" r="17"/><path d="M0 -13 L3 -4 L13 -4 L5 2 L8 12 L0 6 L-8 12 L-5 2 L-13 -4 L-3 -4 Z"/>';
+    }
+    return '<g transform="translate(' + x + ' ' + y + ') scale(' + scale + ')" fill="none" stroke="' + INK + '" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' + art + '</g>';
+  }
+
+  function courtArt(card) {
+    var n = card.number;
+    var s = '<g fill="none" stroke="' + INK + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">';
+    if (n === 11) {
+      s += '<path d="M73 130 Q100 111 127 130 L120 210 Q100 225 80 210 Z M82 130 L78 112 L92 119 L100 101 L108 119 L122 112 L118 130"/>';
+      s += '<circle cx="100" cy="85" r="14"/><path d="M85 84 L89 67 L100 78 L111 67 L115 84 M100 100 L100 111 M73 149 L48 174 M127 149 L150 130"/>';
+      s += '<path d="M86 214 L81 239 M114 214 L119 239 M80 239 L68 239 M120 239 L132 239"/>';
+    } else if (n === 12) {
+      s += '<path d="M52 208 Q81 189 103 204 Q129 188 150 209 Q136 234 107 229 L73 232 Z M73 202 L66 177 L82 160 L101 176 L116 201 M113 198 L131 177 L148 184 L153 203"/>';
+      s += '<circle cx="97" cy="143" r="13"/><path d="M84 141 L82 124 L100 131 L114 121 L111 144 M86 156 L74 173 M108 156 L126 172"/>';
+      s += '<path d="M80 231 L73 246 M127 230 L134 246"/>';
+    } else if (n === 13) {
+      s += '<path d="M73 140 Q100 114 127 140 L123 216 Q100 231 77 216 Z M76 140 L68 115 L86 127 L100 104 L114 127 L132 115 L124 140"/>';
+      s += '<circle cx="100" cy="91" r="13"/><path d="M91 92 Q100 98 109 92 M84 214 L80 241 M116 214 L120 241"/>';
+      s += '<path d="M73 166 L50 182 M127 166 L151 181 M51 182 L46 195 M151 181 L156 194"/>';
+    } else {
+      s += '<path d="M66 143 L134 143 L128 217 Q100 235 72 217 Z M69 143 L61 119 L79 127 L91 109 L100 122 L109 109 L121 127 L139 119 L131 143"/>';
+      s += '<circle cx="100" cy="89" r="14"/><path d="M88 89 L92 81 L100 87 L108 81 L112 89 M100 103 L100 118 M66 163 L43 178 M134 163 L157 178"/>';
+      s += '<path d="M78 218 L72 242 M122 218 L128 242 M72 242 L60 242 M128 242 L140 242"/>';
+    }
+    s += '</g>' + suitSymbol(card.suit, 139, 103, 0.72);
+    return s;
+  }
 
   function cardSVG(card, reversed) {
     var major = card.arcana === 'major';
-    var col = COLORS[major ? 'major' : card.suit];
     var ja = I.lang() === 'ja';
     var top = I.rankLabel(card);
-    var name = ja ? ct(card).name : ct(card).name.toUpperCase();
-    var nameSize = ja ? (name.length > 8 ? 14 : 16) : (name.length > 17 ? 12 : 14);
+    var name = ja ? ct(card).short : ct(card).short.toUpperCase();
+    if (!name) name = ja ? ct(card).name : ct(card).name.toUpperCase();
+    var nameSize = ja ? (name.length > 7 ? 9 : 11) : (name.length > 17 ? 8 : name.length > 12 ? 9 : 10);
     var s = '<svg class="card-svg' + (reversed ? ' reversed' : '') + '" viewBox="0 0 200 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="' + esc(cardLabel(card, reversed)) + '">';
-    s += '<rect x="3" y="3" width="194" height="334" rx="14" fill="#1b1538" stroke="' + col + '" stroke-width="3"/>';
-    s += '<rect x="11" y="11" width="178" height="318" rx="9" fill="none" stroke="' + col + '" stroke-opacity=".45" stroke-width="1"/>';
-    for (var i = 0; i < 14; i++) {
-      var sx = 20 + ((i * 53) % 160), sy = 50 + ((i * 97) % 240);
-      s += '<circle cx="' + sx + '" cy="' + sy + '" r="' + (i % 3 === 0 ? 1.6 : 1) + '" fill="' + col + '" fill-opacity=".25"/>';
-    }
-    s += '<text x="100" y="44" text-anchor="middle" font-size="' + (ja && top.length > 3 ? 18 : 22) + '" font-weight="700" fill="' + col + '" font-family="' + SERIF + '" letter-spacing="2">' + esc(top) + '</text>';
-    s += '<line x1="40" y1="54" x2="160" y2="54" stroke="' + col + '" stroke-opacity=".5"/>';
-
+    s += '<rect x="3" y="3" width="194" height="334" rx="10" fill="#f5b0cc" stroke="' + PINK + '" stroke-width="2"/>';
+    s += '<rect x="9" y="9" width="182" height="322" rx="6" fill="#ffffff" stroke="' + INK + '" stroke-width="1.4"/>';
+    s += '<path d="M15 15 Q47 13 78 15 T139 15 T185 15 M15 325 Q50 327 83 325 T145 325 T185 325" fill="none" stroke="' + PINK + '" stroke-width="1.2"/>';
+    s += '<text x="100" y="32" text-anchor="middle" font-size="' + (top.length > 4 ? 14 : 17) + '" font-weight="600" fill="' + INK + '" font-family="' + SERIF + '">' + esc(top) + '</text>';
+    s += '<path d="M78 40 Q100 42 122 40" fill="none" stroke="' + INK + '" stroke-width="1" stroke-linecap="round"/>';
     if (major) {
-      s += '<circle cx="100" cy="172" r="66" fill="none" stroke="' + col + '" stroke-width="2"/>';
-      s += '<circle cx="100" cy="172" r="56" fill="none" stroke="' + col + '" stroke-opacity=".6" stroke-dasharray="3 5"/>';
-      for (var k = 0; k < 12; k++) {
-        var a = k * Math.PI / 6;
-        s += '<line x1="' + (100 + 66 * Math.cos(a)).toFixed(1) + '" y1="' + (172 + 66 * Math.sin(a)).toFixed(1) + '" x2="' + (100 + 78 * Math.cos(a)).toFixed(1) + '" y2="' + (172 + 78 * Math.sin(a)).toFixed(1) + '" stroke="' + col + '" stroke-opacity=".7"/>';
-      }
-      s += '<text x="100" y="196" text-anchor="middle" font-size="64" fill="' + col + '" font-family="Georgia,\'Segoe UI Symbol\',\'Apple Symbols\',serif">' + esc(card.glyph) + '︎</text>';
+      s += '<g fill="none" stroke="' + INK + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' + (MAJOR_ART[card.number] || '<circle cx="100" cy="166" r="48"/>') + '</g>';
+    } else if (card.number > 10) {
+      s += courtArt(card);
     } else {
-      var pips = card.number <= 10 ? PIPS[card.number] : [[100, 212]];
-      var size = card.number === 1 ? 74 : card.number > 10 ? 88 : 30;
-      if (card.number > 10) {
-        s += '<path d="' + CROWNS[card.number] + '" fill="' + (card.number >= 13 ? col : 'none') + '" fill-opacity=".85" stroke="' + col + '" stroke-width="3" stroke-linejoin="round"/>';
+      if (card.number === 1) {
+        s += '<g fill="none" stroke="' + INK + '" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M48 146 Q55 130 72 137 Q84 126 93 141 M50 148 Q67 158 82 148"/><path d="M75 144 Q84 154 89 165"/></g>';
+        s += suitSymbol(card.suit, 111, 166, 1.45);
+      } else {
+        var pips = PIPS[card.number] || [[100, 172]];
+        var scale = card.number <= 4 ? 1.05 : card.number <= 7 ? 0.88 : 0.76;
+        pips.forEach(function (p, i) {
+          s += suitSymbol(card.suit, p[0], p[1], scale);
+          if (card.number >= 7 && i % 2 === 0) {
+            s += '<path d="M' + (p[0] - 15) + ' ' + (p[1] + 24) + ' q7 5 13 0" fill="none" stroke="' + PINK + '" stroke-width="1.2" stroke-linecap="round"/>';
+          }
+        });
       }
-      pips.forEach(function (p) {
-        s += '<use href="#pip-' + card.suit + '" x="' + (p[0] - size / 2) + '" y="' + (p[1] - size / 2) + '" width="' + size + '" height="' + size + '" style="color:' + col + '"/>';
-      });
     }
-    s += '<line x1="40" y1="286" x2="160" y2="286" stroke="' + col + '" stroke-opacity=".5"/>';
-    s += '<text x="100" y="312" text-anchor="middle" font-size="' + nameSize + '" font-weight="600" fill="#efeaff" font-family="' + SERIF + '" letter-spacing="1">' + esc(name) + '</text>';
+    s += '<path d="M43 286 Q100 288 157 286" fill="none" stroke="' + PINK + '" stroke-width="1.3"/>';
+    s += '<text x="100" y="309" text-anchor="middle" font-size="' + nameSize + '" font-weight="600" fill="' + INK + '" font-family="' + SERIF + '" letter-spacing=".4">' + esc(name) + '</text>';
     s += '</svg>';
     return s;
   }
