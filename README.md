@@ -6,6 +6,9 @@ An offline-first Progressive Web App (PWA) for practical tarot reading training�
 
 ## ✨ Features
 
+### 🌐 Languages
+- **Japanese by default, English available.** Switch with the 🌐 button in the header; the choice is saved on the device (`localStorage`). The coach feedback follows the selected language and understands readings written in either language.
+
 ### ① Guide (Input & Reference Mode)
 - **Complete 78-Card Dictionary:** Browse and search all 22 Major Arcana and 56 Minor Arcana cards (Wands, Cups, Swords, Pentacles).
 - **Detailed Card Profiles:** View upright and reversed meanings, core keywords, elemental associations, and visual symbolism.
@@ -71,12 +74,14 @@ Once deployed to GitHub Pages, you can install Arcana Coach to your home screen 
 ├── index.html          # App shell, bottom navigation, and install modal
 ├── styles.css          # Mobile-first mystical dark theme & card flip animations
 ├── app.js              # UI state, SVG card renderer, quiz logic, and JSON backup
-├── engine.js           # In-browser AI Reading Coach & cross-card pattern detector
+├── i18n.js             # Language state (default Japanese), UI strings & localized data accessors
+├── engine.js           # In-browser AI Reading Coach & cross-card pattern detector (ja/en)
 ├── manifest.json       # Standalone PWA manifest
 ├── sw.js               # Cache-first Service Worker for offline execution
 ├── CLAUDE.md           # Project architecture rules & AI development guide
 ├── data/
-│   ├── cards.js        # Complete 78-card dataset with upright/reversed concept tags
-│   └── spreads.js      # Three-Card, Heart Sonar, Celtic Cross & prompt bank
+│   ├── cards.js        # Complete 78-card dataset with upright/reversed concept tags (English)
+│   ├── cards.ja.js     # Japanese text for the same 78 cards
+│   └── spreads.js      # Three-Card, Heart Sonar, Celtic Cross & prompt bank (English + Japanese)
 └── icons/
     └── icon.svg        # Vector home-screen app icon

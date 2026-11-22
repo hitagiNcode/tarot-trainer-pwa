@@ -1,5 +1,6 @@
 /* app.js — UI state, SVG card renderer, quiz logic, spreads, journal and JSON backup.
- * Data lives in data/*.js and coaching logic in engine.js; this file only renders and stores.
+ * Data lives in data/*.js, language handling in i18n.js and coaching logic in engine.js;
+ * this file only renders and stores.
  */
 (function () {
   'use strict';
@@ -7,6 +8,8 @@
   var D = window.TarotData;
   var SP = window.TarotSpreads;
   var Coach = window.CoachEngine;
+  var I = window.I18n;
+  var T = I.t;
   var CARDS = D.cards;
 
   var KEYS = {
@@ -25,14 +28,18 @@
   }
   function save(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); return true; }
-    catch (e) { toast('Could not save: storage is full or blocked.'); return false; }
+    catch (e) { toast(T('storage.fail')); return false; }
   }
 
   var quiz = load(KEYS.quiz, null) || { stats: {}, streak: 0, best: 0 };
   var journal = load(KEYS.journal, []);
-  var session = load(KEYS.session, null) || {
-    spreadId: 'three', category: 'romance', prompt: '', custom: '', reversals: true, dealt: null, text: '', feedback: null
-  };
+  var session = load(KEYS.session, null) || {};
+  (function normalizeSession() {
+    var d = { spreadId: 'three', category: 'romance', promptIdx: -1, custom: '', reversals: true, dealt: null, text: '', feedback: null };
+    Object.keys(d).forEach(function (k) { if (session[k] === undefined) session[k] = d[k]; });
+    delete session.prompt; // older versions stored the prompt text; we now store an index so it follows the language
+    if (!SP.spreadById[session.spreadId]) session.spreadId = 'three';
+  })();
 
   /* ---------- helpers ---------- */
   function el(tag, attrs, kids) {
@@ -71,12 +78,14 @@
     return a;
   }
   function stars(n) { return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n); }
-  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-  function cardLabel(card, reversed) { return card.name + (reversed ? ' (reversed)' : ''); }
+  function ct(card) { return I.cardText(card); }
+  function cardLabel(card, reversed) { return ct(card).name + (reversed ? T('card.rev') : ''); }
   function fmtDate(iso) {
-    try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
+    try { return new Date(iso).toLocaleString(T('fmt.date'), { dateStyle: 'medium', timeStyle: 'short' }); }
     catch (e) { return iso; }
   }
+  function sepJoin(list) { return list.join(I.lang() === 'ja' ? '・' : ' · '); }
+  function stripNo(label) { return label.replace(/^\d+\s*·\s*/, ''); }
 
   var toastTimer;
   function toast(msg) {
@@ -84,6 +93,30 @@
     t.textContent = msg; t.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
+  }
+
+  /* ---------- static text & language ---------- */
+  function applyStatic() {
+    document.querySelectorAll('[data-i18n]').forEach(function (n) { n.textContent = T(n.getAttribute('data-i18n')); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function (n) { n.setAttribute('aria-label', T(n.getAttribute('data-i18n-aria'))); });
+    document.title = T('doc.title');
+    var meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', T('doc.desc'));
+    var cur = I.langs.filter(function (l) { return l.code === I.lang(); })[0];
+    document.getElementById('langLabel').textContent = cur ? cur.label : I.lang();
+  }
+
+  function openLanguageSheet() {
+    var body = el('div', { class: 'stack', role: 'radiogroup', 'aria-label': T('lang.title') });
+    I.langs.forEach(function (l) {
+      var on = l.code === I.lang();
+      body.appendChild(el('button', {
+        type: 'button', class: 'option' + (on ? ' correct' : ''), role: 'radio', 'aria-checked': String(on),
+        text: (on ? '✓ ' : '') + l.label,
+        onclick: function () { I.setLang(l.code); closeSheet(); }
+      }));
+    });
+    openSheet(T('lang.title'), body);
   }
 
   /* ---------- bottom sheet ---------- */
@@ -127,21 +160,23 @@
     13: 'M70 124 L76 90 L100 112 L124 90 L130 124 Z',
     14: 'M62 126 L66 88 L84 108 L100 82 L116 108 L134 88 L138 126 Z'
   };
+  var SERIF = "Georgia,'Hiragino Mincho ProN','Yu Mincho','Noto Serif CJK JP','Noto Serif JP',serif";
 
   function cardSVG(card, reversed) {
     var major = card.arcana === 'major';
     var col = COLORS[major ? 'major' : card.suit];
-    var top = major ? card.numeral : (card.number === 1 ? 'ACE' : card.number <= 10 ? String(card.number) : card.rankName.toUpperCase());
-    var name = card.name.toUpperCase();
+    var ja = I.lang() === 'ja';
+    var top = I.rankLabel(card);
+    var name = ja ? ct(card).name : ct(card).name.toUpperCase();
+    var nameSize = ja ? (name.length > 8 ? 14 : 16) : (name.length > 17 ? 12 : 14);
     var s = '<svg class="card-svg' + (reversed ? ' reversed' : '') + '" viewBox="0 0 200 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="' + esc(cardLabel(card, reversed)) + '">';
     s += '<rect x="3" y="3" width="194" height="334" rx="14" fill="#1b1538" stroke="' + col + '" stroke-width="3"/>';
     s += '<rect x="11" y="11" width="178" height="318" rx="9" fill="none" stroke="' + col + '" stroke-opacity=".45" stroke-width="1"/>';
-    // faint stars
     for (var i = 0; i < 14; i++) {
       var sx = 20 + ((i * 53) % 160), sy = 50 + ((i * 97) % 240);
       s += '<circle cx="' + sx + '" cy="' + sy + '" r="' + (i % 3 === 0 ? 1.6 : 1) + '" fill="' + col + '" fill-opacity=".25"/>';
     }
-    s += '<text x="100" y="44" text-anchor="middle" font-size="22" font-weight="700" fill="' + col + '" font-family="Georgia,serif" letter-spacing="2">' + esc(top) + '</text>';
+    s += '<text x="100" y="44" text-anchor="middle" font-size="' + (ja && top.length > 3 ? 18 : 22) + '" font-weight="700" fill="' + col + '" font-family="' + SERIF + '" letter-spacing="2">' + esc(top) + '</text>';
     s += '<line x1="40" y1="54" x2="160" y2="54" stroke="' + col + '" stroke-opacity=".5"/>';
 
     if (major) {
@@ -151,7 +186,7 @@
         var a = k * Math.PI / 6;
         s += '<line x1="' + (100 + 66 * Math.cos(a)).toFixed(1) + '" y1="' + (172 + 66 * Math.sin(a)).toFixed(1) + '" x2="' + (100 + 78 * Math.cos(a)).toFixed(1) + '" y2="' + (172 + 78 * Math.sin(a)).toFixed(1) + '" stroke="' + col + '" stroke-opacity=".7"/>';
       }
-      s += '<text x="100" y="196" text-anchor="middle" font-size="64" fill="' + col + '" font-family="Georgia,\'Segoe UI Symbol\',\'Apple Symbols\',serif">' + esc(card.glyph) + '\uFE0E</text>';
+      s += '<text x="100" y="196" text-anchor="middle" font-size="64" fill="' + col + '" font-family="Georgia,\'Segoe UI Symbol\',\'Apple Symbols\',serif">' + esc(card.glyph) + '︎</text>';
     } else {
       var pips = card.number <= 10 ? PIPS[card.number] : [[100, 212]];
       var size = card.number === 1 ? 74 : card.number > 10 ? 88 : 30;
@@ -163,7 +198,7 @@
       });
     }
     s += '<line x1="40" y1="286" x2="160" y2="286" stroke="' + col + '" stroke-opacity=".5"/>';
-    s += '<text x="100" y="312" text-anchor="middle" font-size="' + (name.length > 17 ? 12 : 14) + '" font-weight="600" fill="#efeaff" font-family="Georgia,serif" letter-spacing="1">' + esc(name) + '</text>';
+    s += '<text x="100" y="312" text-anchor="middle" font-size="' + nameSize + '" font-weight="600" fill="#efeaff" font-family="' + SERIF + '" letter-spacing="1">' + esc(name) + '</text>';
     s += '</svg>';
     return s;
   }
@@ -180,6 +215,7 @@
   function showCardDetail(card, opts) {
     opts = opts || {};
     var reversed = !!opts.reversed;
+    var tx = ct(card);
     var body = el('div');
     if (opts.position) {
       body.appendChild(el('div', { class: 'card-panel' }, [
@@ -187,30 +223,31 @@
         el('p', { class: 'small muted', text: opts.position.hint })
       ]));
     }
+    var group = card.arcana === 'major' ? T('card.major') : I.suitName(card.suit);
     var top = el('div', { class: 'detail-top' }, [
       el('div', {}, [cardNode(card, reversed)]),
       el('div', {}, [
-        el('span', { class: 'tag', text: (card.arcana === 'major' ? 'Major Arcana' : D.suits[card.suit].name) + ' · ' + card.element }),
+        el('span', { class: 'tag', text: group + ' · ' + I.elementName(card) }),
         el('h3', { text: cardLabel(card, reversed) })
       ])
     ]);
     var info = top.lastChild;
     if (opts.compact) {
-      info.appendChild(el('div', { class: 'tag', text: reversed ? 'Reversed' : 'Upright' }));
-      info.appendChild(kwList(reversed ? card.revKeywords : card.upKeywords, reversed));
-      info.appendChild(el('p', { text: reversed ? card.rev : card.up }));
+      info.appendChild(el('div', { class: 'tag', text: reversed ? T('card.reversed') : T('card.upright') }));
+      info.appendChild(kwList(reversed ? tx.revKeywords : tx.upKeywords, reversed));
+      info.appendChild(el('p', { text: reversed ? tx.rev : tx.up }));
       body.appendChild(top);
     } else {
-      info.appendChild(el('p', { class: 'small muted', text: card.symbolism }));
+      info.appendChild(el('p', { class: 'small muted', text: tx.symbolism }));
       body.appendChild(top);
-      body.appendChild(el('h3', { text: 'Upright' }));
-      body.appendChild(kwList(card.upKeywords, false));
-      body.appendChild(el('p', { text: card.up }));
-      body.appendChild(el('h3', { text: 'Reversed' }));
-      body.appendChild(kwList(card.revKeywords, true));
-      body.appendChild(el('p', { text: card.rev }));
+      body.appendChild(el('h3', { text: T('card.upright') }));
+      body.appendChild(kwList(tx.upKeywords, false));
+      body.appendChild(el('p', { text: tx.up }));
+      body.appendChild(el('h3', { text: T('card.reversed') }));
+      body.appendChild(kwList(tx.revKeywords, true));
+      body.appendChild(el('p', { text: tx.rev }));
     }
-    openSheet(card.name, body);
+    openSheet(tx.name, body);
   }
 
   /* ---------- views ---------- */
@@ -243,13 +280,17 @@
 
   /* ===== Guide ===== */
   var guide = { filter: 'all', q: '' };
-  var FILTERS = [['all', 'All 78'], ['major', 'Major'], ['wands', 'Wands'], ['cups', 'Cups'], ['swords', 'Swords'], ['pentacles', 'Pentacles'], ['basics', 'Basics']];
+  function filterDefs() {
+    return [['all', T('guide.all')], ['major', T('guide.major')],
+      ['wands', I.suitName('wands')], ['cups', I.suitName('cups')], ['swords', I.suitName('swords')], ['pentacles', I.suitName('pentacles')],
+      ['basics', T('guide.basics')]];
+  }
 
   function renderGuide(root) {
     var list = el('div');
-    var chips = el('div', { class: 'chips', role: 'group', 'aria-label': 'Filter cards' });
+    var chips = el('div', { class: 'chips', role: 'group', 'aria-label': T('guide.filterAria') });
     var search = el('input', {
-      type: 'search', placeholder: 'Search name, keyword or meaning…', 'aria-label': 'Search cards', value: guide.q,
+      type: 'search', placeholder: T('guide.search'), 'aria-label': T('guide.searchAria'),
       oninput: function (e) { guide.q = e.target.value; fillList(); }
     });
     search.value = guide.q;
@@ -257,7 +298,7 @@
 
     function drawChips() {
       chips.replaceChildren();
-      FILTERS.forEach(function (f) {
+      filterDefs().forEach(function (f) {
         chips.appendChild(el('button', {
           type: 'button', class: 'chip', 'aria-pressed': String(guide.filter === f[0]), text: f[1],
           onclick: function () { guide.filter = f[0]; drawChips(); fillList(); }
@@ -273,20 +314,21 @@
         if (guide.filter === 'major' && c.arcana !== 'major') return false;
         if (['wands', 'cups', 'swords', 'pentacles'].indexOf(guide.filter) >= 0 && c.suit !== guide.filter) return false;
         if (!q) return true;
-        var hay = [c.name, c.element, c.up, c.rev, c.upKeywords.join(' '), c.revKeywords.join(' ')].join(' ').toLowerCase();
+        var x = ct(c);
+        var hay = [x.name, I.elementName(c), x.up, x.rev, x.upKeywords.join(' '), x.revKeywords.join(' ')].join(' ').toLowerCase();
         return hay.indexOf(q) >= 0;
       });
-      if (!items.length) { list.appendChild(el('p', { class: 'muted', text: 'No cards match that search.' })); return; }
+      if (!items.length) { list.appendChild(el('p', { class: 'muted', text: T('guide.none') })); return; }
       var grid = el('div', { class: 'grid' });
       items.forEach(function (c) {
         grid.appendChild(el('button', {
-          type: 'button', class: 'grid-item', 'aria-label': c.name,
+          type: 'button', class: 'grid-item', 'aria-label': ct(c).name,
           onclick: function () { showCardDetail(c, {}); }
-        }, [cardNode(c, false), el('span', { class: 'name', text: c.short })]));
+        }, [cardNode(c, false), el('span', { class: 'name', text: ct(c).short })]));
       });
       list.appendChild(grid);
     }
-    root.appendChild(el('h2', { text: 'Card Guide' }));
+    root.appendChild(el('h2', { text: T('guide.title') }));
     root.appendChild(chips);
     root.appendChild(searchWrap);
     root.appendChild(list);
@@ -295,30 +337,9 @@
   }
 
   function primer() {
-    function block(title, paras) {
-      return el('div', { class: 'card-panel' }, [el('h3', { text: title })].concat(paras.map(function (p) { return el('p', { text: p }); })));
-    }
-    return el('div', {}, [
-      block('The structure of the deck', [
-        'A tarot deck has 78 cards in two groups. The 22 Major Arcana (The Fool to The World) show big life themes and turning points. The 56 Minor Arcana describe everyday events, split into four suits of 14 cards each.',
-        'Each suit runs Ace to Ten (the story of a situation from seed to completion), then Page, Knight, Queen and King (people, personalities or ways of acting).'
-      ]),
-      block('Suits and elements', [
-        'Wands (Fire): passion, ambition, action and creativity.',
-        'Cups (Water): emotions, relationships, intuition and imagination.',
-        'Swords (Air): thoughts, communication, truth and conflict.',
-        'Pentacles (Earth): work, money, health and the physical world.'
-      ]),
-      block('Numbers', [
-        'Aces start things. Twos balance or choose. Threes grow. Fours stabilize. Fives disrupt. Sixes harmonize. Sevens test. Eights move or master. Nines near completion. Tens complete, sometimes with a burden.'
-      ]),
-      block('Reading reversals', [
-        'A reversed card is often read as the same energy blocked, delayed, internalized or overdone. Some readers also treat it as the opposite meaning. Pick one approach and use it consistently. This app lists a separate reversed meaning for each card.'
-      ]),
-      block('Reading tips', [
-        'Read the position first, then the card. Look at the whole spread before the individual cards: which suit dominates, how many Majors appear, how many are reversed and which numbers repeat. Finish with a clear answer to the question.'
-      ])
-    ]);
+    return el('div', {}, I.primer().map(function (b) {
+      return el('div', { class: 'card-panel' }, [el('h3', { text: b.title })].concat(b.paras.map(function (p) { return el('p', { text: p }); })));
+    }));
   }
 
   /* ===== Quiz ===== */
@@ -348,10 +369,8 @@
     var pool = CARDS.filter(function (c) { return c.id !== card.id && c.arcana === card.arcana; });
     if (pool.length < 3) pool = CARDS.filter(function (c) { return c.id !== card.id; });
     var decoys = shuffle(pool).slice(0, 3);
-    var options = shuffle([card].concat(decoys)).map(function (c) {
-      return { id: c.id, text: reversed ? c.rev : c.up };
-    });
-    qState = { cardId: card.id, reversed: reversed, options: options, picked: null };
+    // only ids are stored; option text is derived at render time so it follows the language
+    qState = { cardId: card.id, reversed: reversed, options: shuffle([card].concat(decoys)).map(function (c) { return c.id; }), picked: null };
   }
   function answerQuiz(optId) {
     if (qState.picked) return;
@@ -377,67 +396,64 @@
     if (!qState) newQuestion();
     var card = D.byId[qState.cardId];
     var t = quizTotals();
-    root.appendChild(el('h2', { text: 'Recall Quiz' }));
+    root.appendChild(el('h2', { text: T('quiz.title') }));
     root.appendChild(el('div', { class: 'card-panel stat-row' }, [
-      el('div', { class: 'stat' }, [el('b', { text: t.seen ? Math.round(100 * t.correct / t.seen) + '%' : '–' }), el('span', { class: 'small muted', text: 'accuracy' })]),
-      el('div', { class: 'stat' }, [el('b', { text: String(quiz.streak) }), el('span', { class: 'small muted', text: 'streak (best ' + quiz.best + ')' })]),
-      el('div', { class: 'stat' }, [el('b', { text: t.tracked + '/78' }), el('span', { class: 'small muted', text: 'cards tried' })])
+      el('div', { class: 'stat' }, [el('b', { text: t.seen ? Math.round(100 * t.correct / t.seen) + '%' : '–' }), el('span', { class: 'small muted', text: T('quiz.accuracy') })]),
+      el('div', { class: 'stat' }, [el('b', { text: String(quiz.streak) }), el('span', { class: 'small muted', text: T('quiz.streak', { best: quiz.best }) })]),
+      el('div', { class: 'stat' }, [el('b', { text: t.tracked + '/78' }), el('span', { class: 'small muted', text: T('quiz.tried') })])
     ]));
 
     var panel = el('div', { class: 'card-panel' });
-    var wrap = el('div', { class: 'quiz-card' }, [cardNode(card, qState.reversed)]);
-    panel.appendChild(wrap);
-    panel.appendChild(el('p', {
-      class: 'small', style: 'text-align:center',
-      text: 'Which meaning fits this card ' + (qState.reversed ? 'REVERSED (upside-down)' : 'UPRIGHT') + '?'
-    }));
+    panel.appendChild(el('div', { class: 'quiz-card' }, [cardNode(card, qState.reversed)]));
+    panel.appendChild(el('p', { class: 'small', style: 'text-align:center', text: T(qState.reversed ? 'quiz.askRev' : 'quiz.askUp') }));
     var opts = el('div', { class: 'options' });
-    qState.options.forEach(function (o) {
+    qState.options.forEach(function (id) {
+      var c = D.byId[id];
       var cls = 'option';
       if (qState.picked) {
-        if (o.id === qState.cardId) cls += ' correct';
-        else if (o.id === qState.picked) cls += ' wrong';
+        if (id === qState.cardId) cls += ' correct';
+        else if (id === qState.picked) cls += ' wrong';
       }
       opts.appendChild(el('button', {
-        type: 'button', class: cls, disabled: !!qState.picked, text: o.text,
-        onclick: function () { answerQuiz(o.id); }
+        type: 'button', class: cls, disabled: !!qState.picked, text: qState.reversed ? ct(c).rev : ct(c).up,
+        onclick: function () { answerQuiz(id); }
       }));
     });
     panel.appendChild(opts);
 
     if (qState.picked) {
       var ok = qState.picked === qState.cardId;
-      panel.appendChild(el('div', { class: 'verdict ' + (ok ? 'ok' : 'ng'), 'aria-label': ok ? 'Correct' : 'Incorrect', text: ok ? '○' : '×' }));
+      var tx = ct(card);
+      panel.appendChild(el('div', { class: 'verdict ' + (ok ? 'ok' : 'ng'), 'aria-label': T(ok ? 'quiz.correct' : 'quiz.incorrect'), text: ok ? '○' : '×' }));
       panel.appendChild(el('p', { style: 'text-align:center' }, [
         el('b', { text: cardLabel(card, qState.reversed) }),
         el('br'),
-        el('span', { class: 'small muted', text: (qState.reversed ? card.revKeywords : card.upKeywords).join(' · ') })
+        el('span', { class: 'small muted', text: sepJoin(qState.reversed ? tx.revKeywords : tx.upKeywords) })
       ]));
       panel.appendChild(el('div', { class: 'row' }, [
-        el('button', { type: 'button', class: 'btn block', text: 'Next card', onclick: function () { newQuestion(); render(); window.scrollTo(0, 0); } })
+        el('button', { type: 'button', class: 'btn block', text: T('quiz.next'), onclick: function () { newQuestion(); render(); window.scrollTo(0, 0); } })
       ]));
     }
     root.appendChild(panel);
 
-    // review list
     var weak = Object.keys(quiz.stats).map(function (id) {
       var s = quiz.stats[id]; return { id: id, miss: s.seen - s.correct, seen: s.seen };
-    }).filter(function (x) { return x.miss > 0; }).sort(function (a, b) { return b.miss - a.miss; }).slice(0, 5);
+    }).filter(function (x) { return x.miss > 0 && D.byId[x.id]; }).sort(function (a, b) { return b.miss - a.miss; }).slice(0, 5);
     if (weak.length) {
-      var wp = el('div', { class: 'card-panel' }, [el('h3', { text: 'Cards to review' })]);
+      var wp = el('div', { class: 'card-panel' }, [el('h3', { text: T('quiz.review') })]);
       weak.forEach(function (w) {
         var c = D.byId[w.id];
         wp.appendChild(el('button', {
-          type: 'button', class: 'chip', style: 'margin:0 8px 8px 0', text: c.short + ' · missed ' + w.miss + '/' + w.seen,
+          type: 'button', class: 'chip', style: 'margin:0 8px 8px 0', text: T('quiz.missed', { name: ct(c).short, miss: w.miss, seen: w.seen }),
           onclick: function () { showCardDetail(c, {}); }
         }));
       });
       root.appendChild(wp);
     }
     root.appendChild(el('button', {
-      type: 'button', class: 'btn ghost btn-small', text: 'Reset quiz progress',
+      type: 'button', class: 'btn ghost btn-small', text: T('quiz.reset'),
       onclick: function () {
-        if (confirm('Reset all quiz progress on this device?')) {
+        if (confirm(T('quiz.resetConfirm'))) {
           quiz = { stats: {}, streak: 0, best: 0 }; save(KEYS.quiz, quiz); qState = null; render();
         }
       }
@@ -446,19 +462,22 @@
 
   /* ===== Expand (spreads + coach) ===== */
   function saveSession() { save(KEYS.session, session); }
-  function pickPrompt() {
-    var list = SP.prompts[session.category] || [];
-    if (!list.length) return '';
+  function pickPromptIdx() {
+    var list = I.prompts(session.category);
+    if (!list.length) return -1;
     var next;
-    do { next = list[rnd(list.length)]; } while (list.length > 1 && next === session.prompt);
+    do { next = rnd(list.length); } while (list.length > 1 && next === session.promptIdx);
     return next;
   }
-  function currentQuestion() { return (session.custom || '').trim() || session.prompt; }
+  function promptText() {
+    var list = I.prompts(session.category);
+    return list[session.promptIdx] || '';
+  }
+  function currentQuestion() { return (session.custom || '').trim() || promptText(); }
 
   function dealSpread() {
-    var spread = SP.spreadById[session.spreadId];
-    if (session.dealt && (session.text || '').trim() &&
-      !confirm('Dealing new cards will clear your current reading draft. Continue?')) return;
+    var spread = I.spread(session.spreadId);
+    if (session.dealt && (session.text || '').trim() && !confirm(T('exp.dealConfirm'))) return;
     var deck = shuffle(CARDS.map(function (c) { return c.id; }));
     session.dealt = {
       spreadId: spread.id,
@@ -472,15 +491,14 @@
   }
 
   function renderExpand(root) {
-    if (!session.prompt) { session.prompt = pickPrompt(); saveSession(); }
-    var spread = SP.spreadById[session.spreadId];
-    root.appendChild(el('h2', { text: 'Practice a Spread' }));
+    if (session.promptIdx < 0 || !promptText()) { session.promptIdx = pickPromptIdx(); saveSession(); }
+    var spread = I.spread(session.spreadId);
+    root.appendChild(el('h2', { text: T('exp.title') }));
 
-    // Setup
     var setup = el('div', { class: 'card-panel stack' });
-    setup.appendChild(el('div', { class: 'tag', text: '1 · Spread' }));
-    var sc = el('div', { class: 'chips', role: 'group', 'aria-label': 'Spread' });
-    SP.spreads.forEach(function (s) {
+    setup.appendChild(el('div', { class: 'tag', text: T('exp.step1') }));
+    var sc = el('div', { class: 'chips', role: 'group', 'aria-label': T('exp.spreadAria') });
+    I.spreads().forEach(function (s) {
       sc.appendChild(el('button', {
         type: 'button', class: 'chip', 'aria-pressed': String(s.id === session.spreadId), text: s.name + ' (' + s.positions.length + ')',
         onclick: function () { session.spreadId = s.id; saveSession(); render(); }
@@ -489,68 +507,66 @@
     setup.appendChild(sc);
     setup.appendChild(el('p', { class: 'small muted', text: spread.subtitle }));
 
-    setup.appendChild(el('div', { class: 'tag', text: '2 · Consultation' }));
-    var cc = el('div', { class: 'chips', role: 'group', 'aria-label': 'Prompt category' });
-    SP.categories.forEach(function (c) {
+    setup.appendChild(el('div', { class: 'tag', text: T('exp.step2') }));
+    var cc = el('div', { class: 'chips', role: 'group', 'aria-label': T('exp.catAria') });
+    I.categories().forEach(function (c) {
       cc.appendChild(el('button', {
         type: 'button', class: 'chip', 'aria-pressed': String(c.id === session.category), text: c.label,
-        onclick: function () { session.category = c.id; session.prompt = pickPrompt(); saveSession(); render(); }
+        onclick: function () { session.category = c.id; session.promptIdx = pickPromptIdx(); saveSession(); render(); }
       }));
     });
     setup.appendChild(cc);
-    setup.appendChild(el('p', { text: '“' + session.prompt + '”' }));
+    setup.appendChild(el('p', { text: '“' + promptText() + '”' }));
     setup.appendChild(el('button', {
-      type: 'button', class: 'btn ghost btn-small', text: '↻ Another prompt',
-      onclick: function () { session.prompt = pickPrompt(); saveSession(); render(); }
+      type: 'button', class: 'btn ghost btn-small', text: T('exp.another'),
+      onclick: function () { session.promptIdx = pickPromptIdx(); saveSession(); render(); }
     }));
     var custom = el('input', {
-      type: 'text', placeholder: 'Or type your own question (optional)', 'aria-label': 'Your own question', maxlength: '200',
+      type: 'text', placeholder: T('exp.custom'), 'aria-label': T('exp.customAria'), maxlength: '200',
       oninput: function (e) { session.custom = e.target.value; saveSession(); }
     });
     custom.value = session.custom || '';
     setup.appendChild(custom);
     var rv = el('input', { type: 'checkbox', id: 'rv', onchange: function (e) { session.reversals = e.target.checked; saveSession(); } });
     rv.checked = !!session.reversals;
-    setup.appendChild(el('label', { class: 'check', for: 'rv' }, [rv, el('span', { text: 'Include reversed cards' })]));
-    setup.appendChild(el('button', { type: 'button', class: 'btn gold block', text: session.dealt ? '🔀 Shuffle & deal again' : '🔀 Shuffle & deal', onclick: dealSpread }));
+    setup.appendChild(el('label', { class: 'check', for: 'rv' }, [rv, el('span', { text: T('exp.reversals') })]));
+    setup.appendChild(el('button', { type: 'button', class: 'btn gold block', text: T(session.dealt ? 'exp.dealAgain' : 'exp.deal'), onclick: dealSpread }));
     root.appendChild(setup);
 
     if (!session.dealt) {
-      root.appendChild(el('p', { class: 'muted small', text: 'Deal a spread, write your own interpretation, then ask the coach for structured feedback. Everything runs on your device.' }));
+      root.appendChild(el('p', { class: 'muted small', text: T('exp.intro') }));
       return;
     }
 
     var d = session.dealt;
-    var dSpread = SP.spreadById[d.spreadId];
+    var dSpread = I.spread(d.spreadId);
     var panel = el('div', { class: 'card-panel' });
     panel.appendChild(el('span', { class: 'tag', text: dSpread.name }));
-    panel.appendChild(el('p', { text: d.question ? '“' + d.question + '”' : '(no question set)' }));
+    panel.appendChild(el('p', { text: d.question ? '“' + d.question + '”' : T('exp.noQuestion') }));
     panel.appendChild(spreadGrid(dSpread, d.cards));
-    panel.appendChild(el('p', { class: 'small muted', text: 'Tap a card to peek at its keywords.' }));
+    panel.appendChild(el('p', { class: 'small muted', text: T('exp.tapHint') }));
     var legend = el('ol', { class: 'legend' });
     dSpread.positions.forEach(function (p, i) {
       var c = D.byId[d.cards[i].id];
       legend.appendChild(el('li', {}, [
-        el('b', { text: p.label + ': ' }), cardLabel(c, d.cards[i].reversed),
+        el('b', { text: p.label + (I.lang() === 'ja' ? '：' : ': ') }), cardLabel(c, d.cards[i].reversed),
         el('div', { class: 'small muted', text: p.hint })
       ]));
     });
     panel.appendChild(legend);
     root.appendChild(panel);
 
-    // Reading
     var rp = el('div', { class: 'card-panel stack' });
-    rp.appendChild(el('h3', { text: 'Your reading' }));
+    rp.appendChild(el('h3', { text: T('exp.yourReading') }));
     var ta = el('textarea', {
-      placeholder: 'Write your interpretation: mention each card and what its position means, connect them into one answer to the question, and finish with advice.',
-      'aria-label': 'Your reading',
+      placeholder: T('exp.placeholder'), 'aria-label': T('exp.readingAria'),
       oninput: function (e) { session.text = e.target.value; saveSession(); }
     });
     ta.value = session.text || '';
     rp.appendChild(ta);
     rp.appendChild(el('div', { class: 'row' }, [
-      el('button', { type: 'button', class: 'btn', text: '🧠 Get coach feedback', onclick: runCoach }),
-      el('button', { type: 'button', class: 'btn ghost', text: 'Save to journal', onclick: saveToJournal })
+      el('button', { type: 'button', class: 'btn', text: T('exp.coach'), onclick: runCoach }),
+      el('button', { type: 'button', class: 'btn ghost', text: T('exp.save'), onclick: saveToJournal })
     ]));
     root.appendChild(rp);
 
@@ -577,13 +593,15 @@
     return grid;
   }
 
-  function runCoach() {
+  function evaluateSession() {
     var d = session.dealt;
-    if (!d) return;
-    var result = Coach.evaluateReading({
-      spread: SP.spreadById[d.spreadId], cards: d.cards, question: d.question, text: session.text || ''
+    return Coach.evaluateReading({
+      spread: I.spread(d.spreadId), cards: d.cards, question: d.question, text: session.text || '', lang: I.lang()
     });
-    session.feedback = result;
+  }
+  function runCoach() {
+    if (!session.dealt) return;
+    session.feedback = evaluateSession();
     saveSession();
     render();
     var fb = view.querySelector('[data-feedback]');
@@ -592,13 +610,16 @@
 
   function feedbackPanel(fb) {
     var p = el('div', { class: 'card-panel', 'data-feedback': '1' });
-    p.appendChild(el('h3', { text: 'Coach feedback' }));
+    p.appendChild(el('h3', { text: T('fb.title') }));
     if (fb.tooShort) {
-      p.appendChild(el('p', { text: 'Write a little more first: a sentence or two per card gives the coach something to work with.' }));
+      p.appendChild(el('p', { text: T('fb.tooShort') }));
+      if (fb.patterns && fb.patterns.length) {
+        p.appendChild(el('p', { class: 'small muted', text: T('fb.hint', { patterns: fb.patterns.map(function (x) { return x.title; }).join(I.lang() === 'ja' ? '、' : '; ') }) }));
+      }
     } else {
       p.appendChild(el('div', { class: 'row between' }, [
-        el('span', { class: 'stars', text: stars(fb.overall.stars), 'aria-label': fb.overall.stars + ' out of 5 overall' }),
-        el('span', { class: 'muted small', text: 'Overall ' + fb.overall.score + '/100' })
+        el('span', { class: 'stars', text: stars(fb.overall.stars), 'aria-label': T('fb.overallAria', { n: fb.overall.stars }) }),
+        el('span', { class: 'muted small', text: T('fb.overall', { n: fb.overall.score }) })
       ]));
       fb.criteria.forEach(function (c, i) {
         var box = el('div', { class: 'crit' }, [
@@ -612,17 +633,14 @@
         p.appendChild(box);
       });
     }
-    if (fb.patterns && fb.patterns.length && fb.tooShort) {
-      p.appendChild(el('p', { class: 'small muted', text: 'Hint: this spread has patterns worth noticing: ' + fb.patterns.map(function (x) { return x.title; }).join('; ') + '.' }));
-    }
-    p.appendChild(el('p', { class: 'small muted', text: 'Rule-based coach (' + fb.engine + ') running offline on your device. Treat it as a study aid, not an oracle.' }));
+    p.appendChild(el('p', { class: 'small muted', text: T('fb.footer', { engine: fb.engine }) }));
     return p;
   }
 
   function saveToJournal() {
     var d = session.dealt;
     if (!d) return;
-    if (!(session.text || '').trim()) { toast('Write your reading first.'); return; }
+    if (!(session.text || '').trim()) { toast(T('exp.writeFirst')); return; }
     journal.unshift({
       id: Date.now().toString(36) + rnd(1e6).toString(36),
       date: new Date().toISOString(),
@@ -632,41 +650,39 @@
       text: session.text,
       feedback: session.feedback
     });
-    if (save(KEYS.journal, journal)) toast('Saved to your journal.');
+    if (save(KEYS.journal, journal)) toast(T('exp.saved'));
   }
 
   /* ===== Journal & backup ===== */
   function renderJournal(root) {
-    root.appendChild(el('h2', { text: 'Reading Journal' }));
-    if (!journal.length) {
-      root.appendChild(el('p', { class: 'muted', text: 'No saved readings yet. Deal a spread in Expand, write your reading and tap “Save to journal”.' }));
-    }
+    root.appendChild(el('h2', { text: T('j.title') }));
+    if (!journal.length) root.appendChild(el('p', { class: 'muted', text: T('j.empty') }));
     journal.forEach(function (e) {
-      var spread = SP.spreadById[e.spreadId] || { name: e.spreadId, positions: [] };
+      var spread = I.spread(e.spreadId) || { name: e.spreadId, positions: [] };
       var det = el('details', { class: 'entry' });
       det.appendChild(el('summary', {}, [
         el('b', { text: spread.name }), el('span', { class: 'small muted', text: ' · ' + fmtDate(e.date) }),
-        el('div', { class: 'small', text: e.question || '(no question)' })
+        el('div', { class: 'small', text: e.question || T('j.noQuestion') })
       ]));
       var body = el('div', { class: 'body stack' });
       var mini = el('div', { class: 'mini-cards' });
       e.cards.forEach(function (c, i) {
         var card = D.byId[c.id]; if (!card) return;
         var pos = spread.positions[i];
-        mini.appendChild(el('div', {}, [cardNode(card, c.reversed), el('div', { text: pos ? pos.label.replace(/^\d+\s*·\s*/, '') : '' })]));
+        mini.appendChild(el('div', {}, [cardNode(card, c.reversed), el('div', { text: pos ? stripNo(pos.label) : '' })]));
       });
       body.appendChild(mini);
       body.appendChild(el('div', { class: 'reading-text', text: e.text }));
       if (e.feedback && e.feedback.criteria && e.feedback.criteria.length) {
         body.appendChild(el('div', { class: 'small' }, [
           el('span', { class: 'stars', text: stars(e.feedback.overall.stars) }),
-          ' ' + e.feedback.criteria.map(function (c) { return c.title.replace(' Perspective', '').replace('Professional Reader’s', 'Pro') + ' ' + stars(c.stars); }).join(' · ')
+          ' ' + e.feedback.criteria.map(function (c) { return (c.short || c.title) + ' ' + stars(c.stars); }).join(' · ')
         ]));
       }
       body.appendChild(el('button', {
-        type: 'button', class: 'btn danger btn-small', text: 'Delete entry',
+        type: 'button', class: 'btn danger btn-small', text: T('j.delete'),
         onclick: function () {
-          if (!confirm('Delete this journal entry?')) return;
+          if (!confirm(T('j.deleteConfirm'))) return;
           journal = journal.filter(function (x) { return x.id !== e.id; }); save(KEYS.journal, journal); render();
         }
       }));
@@ -674,13 +690,12 @@
       root.appendChild(det);
     });
 
-    var bk = el('div', { class: 'card-panel stack' }, [
-      el('h3', { text: 'Backup & transfer' }),
-      el('p', { class: 'small muted', text: 'Your quiz progress and journal live only on this device. Export a .json file to move them to another device or keep a copy.' }),
-      el('button', { type: 'button', class: 'btn block', text: '⬇ Export Backup (.json)', onclick: exportBackup }),
-      el('button', { type: 'button', class: 'btn ghost block', text: '⬆ Import Backup (.json)', onclick: function () { document.getElementById('importFile').click(); } })
-    ]);
-    root.appendChild(bk);
+    root.appendChild(el('div', { class: 'card-panel stack' }, [
+      el('h3', { text: T('j.backup') }),
+      el('p', { class: 'small muted', text: T('j.backupText') }),
+      el('button', { type: 'button', class: 'btn block', text: T('j.export'), onclick: exportBackup }),
+      el('button', { type: 'button', class: 'btn ghost block', text: T('j.import'), onclick: function () { document.getElementById('importFile').click(); } })
+    ]));
   }
 
   var importInput = el('input', { type: 'file', id: 'importFile', accept: '.json,application/json', class: 'hidden' });
@@ -690,7 +705,7 @@
     if (!f) return;
     var r = new FileReader();
     r.onload = function () { importBackup(String(r.result)); importInput.value = ''; };
-    r.onerror = function () { toast('Could not read that file.'); };
+    r.onerror = function () { toast(T('j.readFail')); };
     r.readAsText(f);
   });
 
@@ -704,16 +719,15 @@
     a.download = 'arcana-coach-backup-' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.json';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    toast('Backup exported.');
+    toast(T('j.exported'));
   }
 
   function importBackup(text) {
     var data;
-    try { data = JSON.parse(text); } catch (e) { toast('That file is not valid JSON.'); return; }
+    try { data = JSON.parse(text); } catch (e) { toast(T('j.badJson')); return; }
     if (!data || data.app !== 'arcana-coach' || typeof data.quiz !== 'object' || !Array.isArray(data.journal)) {
-      toast('That does not look like an Arcana Coach backup.'); return;
+      toast(T('j.badBackup')); return;
     }
-    // merge quiz stats (keep the entry with more attempts)
     var stats = data.quiz && data.quiz.stats ? data.quiz.stats : {};
     Object.keys(stats).forEach(function (id) {
       if (!D.byId[id]) return;
@@ -723,7 +737,6 @@
       if (!mine || s.seen > mine.seen) quiz.stats[id] = { seen: s.seen, correct: Math.min(s.correct, s.seen) };
     });
     quiz.best = Math.max(quiz.best || 0, (data.quiz && data.quiz.best) || 0);
-    // merge journal by id
     var have = {};
     journal.forEach(function (e) { have[e.id] = true; });
     var added = 0;
@@ -734,7 +747,7 @@
     });
     journal.sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
     save(KEYS.quiz, quiz); save(KEYS.journal, journal);
-    toast('Imported ' + added + ' journal entr' + (added === 1 ? 'y' : 'ies') + ' and quiz progress.');
+    toast(T('j.imported', { n: added }));
     render();
   }
 
@@ -750,7 +763,7 @@
       e.preventDefault(); deferredPrompt = e; installBtn.hidden = false;
     });
   }
-  window.addEventListener('appinstalled', function () { installBtn.hidden = true; deferredPrompt = null; toast('Installed. Open it from your home screen.'); });
+  window.addEventListener('appinstalled', function () { installBtn.hidden = true; deferredPrompt = null; toast(T('install.done')); });
   installBtn.addEventListener('click', function () {
     if (deferredPrompt) {
       deferredPrompt.prompt();
@@ -758,20 +771,23 @@
       return;
     }
     var body = el('div', { class: 'stack' }, [
-      el('h3', { text: 'iPhone / iPad (Safari)' }),
-      el('ol', {}, [
-        el('li', { text: 'Open this page in Safari.' }),
-        el('li', { text: 'Tap the Share button in the toolbar.' }),
-        el('li', { text: 'Scroll down and tap “Add to Home Screen”, then tap Add.' })
-      ]),
-      el('h3', { text: 'Android (Chrome)' }),
-      el('ol', {}, [
-        el('li', { text: 'Tap the ⋮ menu.' }),
-        el('li', { text: 'Choose “Install app” or “Add to Home screen”.' })
-      ]),
-      el('p', { class: 'small muted', text: 'Once installed it opens full-screen and works offline.' })
+      el('h3', { text: T('install.ios') }),
+      el('ol', {}, [el('li', { text: T('install.ios1') }), el('li', { text: T('install.ios2') }), el('li', { text: T('install.ios3') })]),
+      el('h3', { text: T('install.android') }),
+      el('ol', {}, [el('li', { text: T('install.android1') }), el('li', { text: T('install.android2') })]),
+      el('p', { class: 'small muted', text: T('install.note') })
     ]);
-    openSheet('Install Arcana Coach', body);
+    openSheet(T('install.title'), body);
+  });
+
+  /* ---------- language switching ---------- */
+  document.getElementById('langBtn').addEventListener('click', openLanguageSheet);
+  I.onChange(function () {
+    applyStatic();
+    // Re-run the coach in the new language so the visible feedback matches the UI.
+    if (session.dealt && session.feedback) session.feedback = evaluateSession();
+    saveSession();
+    render();
   });
 
   /* ---------- service worker ---------- */
@@ -781,5 +797,6 @@
     });
   }
 
+  applyStatic();
   go(currentTab);
 })();

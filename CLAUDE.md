@@ -18,6 +18,12 @@ https://hitagincode.github.io/tarot-trainer-pwa/ (repo: hitagiNcode/tarot-traine
 ## Layout
 See the project structure in README.md.
 
+## Languages
+- The app is Japanese by default with English as an option; the choice is saved in `localStorage` (`arcana.lang.v1`).
+- All interface text lives in `i18n.js`. Card text is in `data/cards.js` (English) and `data/cards.ja.js` (Japanese). Spread and prompt text is in `data/spreads.js`. Coach messages are in `engine.js`.
+- When you add or change a card, spread, prompt or UI string, update **both** languages. Never hard-code visible text in `app.js`; use `I18n.t('key')`.
+- Adding another language means adding it in `i18n.js`, `data/spreads.js` and `engine.js`, plus a card data file like `cards.ja.js`, and listing any new files in `sw.js`.
+
 ## GitHub basics (for newcomers)
 High-level notes only; details may change, so check GitHub's own docs when in doubt.
 

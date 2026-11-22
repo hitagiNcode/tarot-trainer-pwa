@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Arcana Coach — Tarot Reading Trainer</title>
-  <meta name="description" content="Offline-first tarot reading trainer: 78-card guide, recall quizzes, interactive spreads and an in-browser reading coach.">
+  <title>Arcana Coach — タロット・リーディング練習アプリ</title>
+  <meta name="description" content="オフラインで使えるタロット練習アプリ。78枚のカードガイド、暗記クイズ、スプレッド実践、ブラウザ内のリーディングコーチ。">
   <meta name="theme-color" content="#14102a">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -38,16 +38,19 @@
 
   <header class="app-header">
     <div class="brand"><span class="brand-mark" aria-hidden="true">🔮</span><h1>Arcana Coach</h1></div>
-    <button id="installBtn" class="btn btn-small" type="button" hidden>Install App</button>
+    <div class="header-actions">
+      <button id="langBtn" class="btn btn-small ghost" type="button" data-i18n-aria="lang.aria"><span aria-hidden="true">🌐</span> <span id="langLabel">日本語</span></button>
+      <button id="installBtn" class="btn btn-small" type="button" data-i18n="install" hidden>アプリをインストール</button>
+    </div>
   </header>
 
   <main id="view" tabindex="-1" aria-live="polite"></main>
 
-  <nav class="tabbar" aria-label="Main">
-    <button type="button" class="tab" data-tab="guide"><span class="tab-ico" aria-hidden="true">📖</span><span>Guide</span></button>
-    <button type="button" class="tab" data-tab="quiz"><span class="tab-ico" aria-hidden="true">🎯</span><span>Quiz</span></button>
-    <button type="button" class="tab" data-tab="expand"><span class="tab-ico" aria-hidden="true">🃏</span><span>Expand</span></button>
-    <button type="button" class="tab" data-tab="journal"><span class="tab-ico" aria-hidden="true">📓</span><span>Journal</span></button>
+  <nav class="tabbar" aria-label="メイン">
+    <button type="button" class="tab" data-tab="guide"><span class="tab-ico" aria-hidden="true">📖</span><span data-i18n="tab.guide">ガイド</span></button>
+    <button type="button" class="tab" data-tab="quiz"><span class="tab-ico" aria-hidden="true">🎯</span><span data-i18n="tab.quiz">クイズ</span></button>
+    <button type="button" class="tab" data-tab="expand"><span class="tab-ico" aria-hidden="true">🃏</span><span data-i18n="tab.expand">実践</span></button>
+    <button type="button" class="tab" data-tab="journal"><span class="tab-ico" aria-hidden="true">📓</span><span data-i18n="tab.journal">ジャーナル</span></button>
   </nav>
 
   <div id="sheet" class="sheet" hidden>
@@ -56,7 +59,7 @@
       <div class="sheet-grab" aria-hidden="true"></div>
       <div class="sheet-head">
         <h2 id="sheetTitle"></h2>
-        <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
+        <button type="button" class="icon-btn" data-close data-i18n-aria="close" aria-label="閉じる">✕</button>
       </div>
       <div id="sheetBody" class="sheet-body"></div>
     </div>
@@ -64,10 +67,12 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-  <noscript><p class="noscript">Arcana Coach needs JavaScript to run.</p></noscript>
+  <noscript><p class="noscript">Arcana Coach の利用には JavaScript が必要です。 / Arcana Coach needs JavaScript to run.</p></noscript>
 
   <script src="data/cards.js"></script>
+  <script src="data/cards.ja.js"></script>
   <script src="data/spreads.js"></script>
+  <script src="i18n.js"></script>
   <script src="engine.js"></script>
   <script src="app.js"></script>
 </body>

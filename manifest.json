@@ -1,7 +1,7 @@
 {
-  "name": "Arcana Coach — Tarot Reading Trainer",
+  "name": "Arcana Coach — タロット・リーディング練習アプリ",
   "short_name": "Arcana Coach",
-  "description": "Offline-first tarot reading trainer: card guide, recall quizzes, interactive spreads and an in-browser reading coach.",
+  "description": "オフラインで使えるタロット練習アプリ。カードガイド、暗記クイズ、スプレッド実践、ブラウザ内のリーディングコーチ。",
   "id": "./",
   "start_url": "./",
   "scope": "./",
@@ -9,11 +9,35 @@
   "orientation": "portrait",
   "background_color": "#14102a",
   "theme_color": "#14102a",
-  "categories": ["education", "lifestyle"],
+  "categories": [
+    "education",
+    "lifestyle"
+  ],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
-  ]
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "lang": "ja"
 }

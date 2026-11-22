@@ -2,7 +2,7 @@
  * Bump CACHE_NAME whenever any cached file is added, renamed or changed so installed PWAs update.
  * All URLs are relative: the site is served from /tarot-trainer-pwa/ on GitHub Pages.
  */
-const CACHE_NAME = 'arcana-coach-v1';
+const CACHE_NAME = 'arcana-coach-v2';
 
 const ASSETS = [
   './',
@@ -10,8 +10,10 @@ const ASSETS = [
   'styles.css',
   'app.js',
   'engine.js',
+  'i18n.js',
   'manifest.json',
   'data/cards.js',
+  'data/cards.ja.js',
   'data/spreads.js',
   'icons/icon.svg',
   'icons/icon-192.png',
