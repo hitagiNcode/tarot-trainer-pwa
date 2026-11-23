@@ -74,6 +74,7 @@ Once deployed to GitHub Pages, you can install Arcana Coach to your home screen 
 ├── index.html          # App shell, bottom navigation, and install modal
 ├── styles.css          # Mobile-first mystical dark theme & card flip animations
 ├── app.js              # UI state, SVG card renderer, quiz logic, and JSON backup
+├── art.js              # Original line-art symbols for the Major Arcana, drawn in code
 ├── i18n.js             # Language state (default Japanese), UI strings & localized data accessors
 ├── engine.js           # In-browser AI Reading Coach & cross-card pattern detector (ja/en)
 ├── manifest.json       # Standalone PWA manifest
@@ -85,14 +86,3 @@ Once deployed to GitHub Pages, you can install Arcana Coach to your home screen 
 │   └── spreads.js      # Three-Card, Heart Sonar, Celtic Cross & prompt bank (English + Japanese)
 └── icons/
     └── icon.svg        # Vector home-screen app icon
-
-## 🔐 Authentication & Data Privacy
-
-Arcana Coach currently runs without user accounts or a sign-in flow. It does not require a username, password, OAuth provider, or application access token.
-
-- **Local-only progress:** Quiz statistics, reading journal entries, session state, and preferences are saved in the browser's `localStorage`.
-- **No account sync:** Data is associated with the browser profile on the current device; it is not automatically synchronized between devices.
-- **Portable backups:** Use the JSON export/import feature to move quiz progress and journal entries between devices. Treat exported backup files as personal data and store them securely.
-- **Offline operation:** The service worker caches application assets so the PWA can continue working offline. Caching application files does not provide user authentication or encrypt locally stored data.
-
-Because there is no account system, the app does not currently issue or manage login sessions, JWTs, refresh tokens, or OAuth credentials. Anyone with access to the same browser profile may be able to access its locally stored app data. Avoid storing sensitive personal information in journal entries or unprotected backup files.
