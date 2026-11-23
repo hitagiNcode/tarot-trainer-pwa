@@ -262,9 +262,19 @@
     return s;
   }
   function cardNode(card, reversed) {
-    var d = document.createElement('div');
-    d.innerHTML = cardSVG(card, reversed); // generated from local data only
-    return d.firstChild;
+    var img = document.createElement('img');
+    img.className = 'card-svg' + (reversed ? ' reversed' : '');
+    img.src = 'assets/cards/' + card.id + '.png';
+    img.alt = cardLabel(card, reversed);
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.onerror = function () {
+      // Keep the app usable until the separate PNG pack is installed in assets/cards/.
+      var fallback = document.createElement('div');
+      fallback.innerHTML = cardSVG(card, reversed);
+      if (fallback.firstChild) img.replaceWith(fallback.firstChild);
+    };
+    return img;
   }
 
   /* ---------- card detail sheet ---------- */
