@@ -74,6 +74,7 @@ Once deployed to GitHub Pages, you can install Arcana Coach to your home screen 
 ├── index.html          # App shell, bottom navigation, and install modal
 ├── styles.css          # Mobile-first mystical dark theme & card flip animations
 ├── app.js              # UI state, SVG card renderer, quiz logic, and JSON backup
+├── art.js              # Original line-art symbols for the Major Arcana, drawn in code
 ├── i18n.js             # Language state (default Japanese), UI strings & localized data accessors
 ├── engine.js           # In-browser AI Reading Coach & cross-card pattern detector (ja/en)
 ├── manifest.json       # Standalone PWA manifest

@@ -181,12 +181,13 @@
 
     if (major) {
       s += '<circle cx="100" cy="172" r="66" fill="none" stroke="' + col + '" stroke-width="2"/>';
-      s += '<circle cx="100" cy="172" r="56" fill="none" stroke="' + col + '" stroke-opacity=".6" stroke-dasharray="3 5"/>';
       for (var k = 0; k < 12; k++) {
         var a = k * Math.PI / 6;
         s += '<line x1="' + (100 + 66 * Math.cos(a)).toFixed(1) + '" y1="' + (172 + 66 * Math.sin(a)).toFixed(1) + '" x2="' + (100 + 78 * Math.cos(a)).toFixed(1) + '" y2="' + (172 + 78 * Math.sin(a)).toFixed(1) + '" stroke="' + col + '" stroke-opacity=".7"/>';
       }
-      s += '<text x="100" y="196" text-anchor="middle" font-size="64" fill="' + col + '" font-family="Georgia,\'Segoe UI Symbol\',\'Apple Symbols\',serif">' + esc(card.glyph) + '︎</text>';
+      var art = window.CardArt ? window.CardArt.major(card.number, col) : '';
+      if (art) s += art;
+      else s += '<text x="100" y="196" text-anchor="middle" font-size="64" fill="' + col + '" font-family="Georgia,\'Segoe UI Symbol\',\'Apple Symbols\',serif">' + esc(card.glyph) + '\uFE0E</text>';
     } else {
       var pips = card.number <= 10 ? PIPS[card.number] : [[100, 212]];
       var size = card.number === 1 ? 74 : card.number > 10 ? 88 : 30;

@@ -24,6 +24,10 @@ See the project structure in README.md.
 - When you add or change a card, spread, prompt or UI string, update **both** languages. Never hard-code visible text in `app.js`; use `I18n.t('key')`.
 - Adding another language means adding it in `i18n.js`, `data/spreads.js` and `engine.js`, plus a card data file like `cards.ja.js`, and listing any new files in `sw.js`.
 
+## Card artwork
+- Card symbols are original, drawn in code in `art.js` (Major Arcana done; Minor Arcana still use simple suit pips drawn in `app.js`).
+- Do not copy or trace artwork from other decks, posters or products, even loosely. If new artwork is added as image files, record who owns it and under what license.
+
 ## GitHub basics (for newcomers)
 High-level notes only; details may change, so check GitHub's own docs when in doubt.
 
